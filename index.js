@@ -1,31 +1,80 @@
 // index.js
 const express = require("express");
-const authRoutes = require("./routes/auth");
 const connectDB = require("./config/db");
 const dotenv = require("dotenv");
 const cors = require("cors");
-dotenv.config();
-
-const app = express();
 const cookieParser = require("cookie-parser");
+const authRoutes = require("./routes/auth");
+const chatRoutes = require("./routes/chat");
+const http = require("http");
+const socketio = require("socket.io");
+
+dotenv.config();
+const app = express();
+
 app.use(cookieParser());
+app.use(express.json());
 
 app.use(
 	cors({
-		origin: "http://192.168.1.3:3000", // Replace with your frontend URL
-		credentials: true, // Allow cookies and other credentials
+		origin: "http://localhost:3000", // Adjust if needed
+		credentials: true,
 	})
 );
-// Middleware to parse JSON bodies
-app.use(express.json());
 
 // Connect to MongoDB
 connectDB();
-// Mount authentication routes
-// app.use("/", (req, res) => {
-// 	res.json({ message: "Welcome to the API" });
-// });
+
+// Mount routes
 app.use("/api/auth", authRoutes);
+app.use("/api/chat", chatRoutes);
+
+app.get("/", (req, res) => {
+	res.json({ message: "Welcome to the API" });
+});
+
+// Create an HTTP server and attach the Express app
+const server = http.createServer(app);
+
+// Create a Socket.IO server that shares the HTTP server
+const io = socketio(server, {
+	cors: {
+		origin: "http://localhost:3000",
+		methods: ["GET", "POST"],
+		credentials: true,
+	},
+});
+
+// Socket.IO connection handling
+io.on("connection", (socket) => {
+	console.log("New client connected:", socket.id);
+
+	// When a client joins, you can have them join a room with their userId
+	socket.on("join", (userId) => {
+		socket.join(userId);
+		console.log(`User ${userId} joined room ${userId}`);
+	});
+
+	// Listen for sendMessage event from clients
+	socket.on("sendMessage", (data) => {
+		console.log("Received message:", data);
+		// Send message to the recipient's room only
+		io.to(data.recipient).emit("message", data);
+		// Optionally, emit back to sender as confirmation
+		socket.emit("message", data);
+	});
+
+	socket.on("typing", (data) => {
+		io.to(data.recipient).emit("typing", { sender: data.sender });
+	});
+	socket.on("stopTyping", (data) => {
+		io.to(data.recipient).emit("stopTyping", { sender: data.sender });
+	});
+
+	socket.on("disconnect", () => {
+		console.log("Client disconnected:", socket.id);
+	});
+});
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

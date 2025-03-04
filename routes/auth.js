@@ -8,6 +8,7 @@ const {
 	refreshToken,
 	logout,
 	getUserProfile,
+	getUsers,
 } = require("../controllers/authController");
 
 // Signup & Login routes
@@ -18,5 +19,6 @@ router.post("/logout", logout);
 
 // Protected route to get current user info
 router.get("/user_profile", protect, getUserProfile);
+router.get("/users", protect, getUsers);
 
 module.exports = router;

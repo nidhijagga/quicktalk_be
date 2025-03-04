@@ -10,7 +10,6 @@ exports.signup = async (req, res) => {
 	try {
 		const { username, email, password } = req.body;
 
-		// Check if the user already exists
 		const existingUser = await User.findOne({ email });
 		if (existingUser) {
 			return res.status(400).json({
@@ -19,8 +18,10 @@ exports.signup = async (req, res) => {
 			});
 		}
 
-		// Create a new user (assume password hashing occurs in a pre-save hook)
-		const newUser = new User({ username, email, password });
+		// Hash the password manually
+		const hashedPassword = await bcrypt.hash(password, 10);
+
+		const newUser = new User({ username, email, password: hashedPassword });
 		await newUser.save();
 
 		return res
@@ -90,7 +91,7 @@ exports.login = async (req, res) => {
 // Refresh controller: Rotates refresh token and issues a new access token
 exports.refreshToken = async (req, res) => {
 	try {
-		const oldRefreshToken = req.cookies.refreshToken;
+		const oldRefreshToken = req.body.refreshToken;
 		if (!oldRefreshToken) {
 			return res.status(401).json({
 				status: 401,
@@ -194,5 +195,29 @@ exports.getUserProfile = async (req, res) => {
 		return res
 			.status(500)
 			.json({ status: 500, message: "Server error fetching user" });
+	}
+};
+
+exports.getUsers = async (req, res) => {
+	try {
+		// req.userId should be set by the protect middleware
+		const currentUserId = req.userId;
+
+		// Find all users except the one with currentUserId
+		const users = await User.find({ _id: { $ne: currentUserId } }).select(
+			"-password"
+		);
+
+		return res.status(200).json({
+			status: 200,
+			message: "Users fetched successfully",
+			users,
+		});
+	} catch (error) {
+		console.error("Error fetching users:", error);
+		return res.status(500).json({
+			status: 500,
+			message: "Server error while fetching users",
+		});
 	}
 };
