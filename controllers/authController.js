@@ -176,3 +176,23 @@ exports.logout = async (req, res) => {
 			.json({ status: 500, message: "Server error during logout" });
 	}
 };
+
+// Get current user profile
+exports.getUserProfile = async (req, res) => {
+	try {
+		const user = await User.findById(req.userId).select("-password");
+		if (!user) {
+			return res
+				.status(404)
+				.json({ status: 404, message: "User not found" });
+		}
+		return res
+			.status(200)
+			.json({ status: 200, user, message: "User fetched successfully" });
+	} catch (error) {
+		console.error("Get profile error:", error);
+		return res
+			.status(500)
+			.json({ status: 500, message: "Server error fetching user" });
+	}
+};
