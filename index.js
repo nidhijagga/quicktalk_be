@@ -15,9 +15,17 @@ const app = express();
 app.use(cookieParser());
 app.use(express.json());
 
+const allowedOrigins = ["http://localhost:3000", "http://192.168.1.3:3000"];
+
 app.use(
 	cors({
-		origin: "http://localhost:3000", // Adjust if needed
+		origin: (origin, callback) => {
+			if (!origin || allowedOrigins.includes(origin)) {
+				callback(null, true);
+			} else {
+				callback(new Error("Not allowed by CORS"));
+			}
+		},
 		credentials: true,
 	})
 );
@@ -39,11 +47,13 @@ const server = http.createServer(app);
 // Create a Socket.IO server that shares the HTTP server
 const io = socketio(server, {
 	cors: {
-		origin: "http://localhost:3000",
+		origin: ["http://localhost:3000", "http://192.168.1.3:3000"],
 		methods: ["GET", "POST"],
 		credentials: true,
 	},
 });
+
+const onlineUsers = new Set();
 
 // Socket.IO connection handling
 io.on("connection", (socket) => {
@@ -71,8 +81,23 @@ io.on("connection", (socket) => {
 		io.to(data.recipient).emit("stopTyping", { sender: data.sender });
 	});
 
+	socket.on("join", (userId) => {
+		socket.userId = userId;
+		onlineUsers.add(userId);
+		// Emit the updated online users list to all connected clients
+		io.emit("onlineUsers", Array.from(onlineUsers));
+		console.log(
+			`User ${userId} joined. Online users:`,
+			Array.from(onlineUsers)
+		);
+	});
+
 	socket.on("disconnect", () => {
-		console.log("Client disconnected:", socket.id);
+		if (socket.userId) {
+			onlineUsers.delete(socket.userId);
+			io.emit("onlineUsers", Array.from(onlineUsers));
+			console.log("User disconnected:", socket.userId);
+		}
 	});
 });
 
