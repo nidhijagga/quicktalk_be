@@ -15,7 +15,7 @@ const app = express();
 app.use(cookieParser());
 app.use(express.json());
 
-const allowedOrigins = ["http://localhost:3000", "http://192.168.1.3:3000"];
+const allowedOrigins = [process.env.CLIENT_URL, process.env.CLIENT_URL2];
 
 app.use(
 	cors({
@@ -47,7 +47,7 @@ const server = http.createServer(app);
 // Create a Socket.IO server that shares the HTTP server
 const io = socketio(server, {
 	cors: {
-		origin: ["http://localhost:3000", "http://192.168.1.3:3000"],
+		origin: [process.env.CLIENT_URL, process.env.CLIENT_URL2],
 		methods: ["GET", "POST"],
 		credentials: true,
 	},
